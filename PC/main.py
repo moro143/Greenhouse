@@ -2,9 +2,20 @@ import requests
 import time
 from datetime import datetime
 import csv
+import influxdb_client, os, time
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
+
+token = os.environ.get("INFLUXDB_TOKEN")
+org = "moro"
+url = "http://localhost:8086"
+
+write_client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
 
 ESP_URL = "http://192.168.0.62"  # <-- Replace with your ESP's IP
 LOG_FILE = "sensor_log.csv"
+
+bucket = "sensors"
 
 
 def fetch_data():
@@ -23,6 +34,16 @@ def log_to_csv(data):
         writer = csv.writer(f)
         writer.writerow(
             [now, data["temperature"], data["humidity"], data["soil_moisture"]]
+        )
+        point = (
+            Point("sensor_data")
+            .tag("device", "esp_sensor")
+            .field("temperature", data["temperature"])
+            .field("humidity", data["humidity"])
+            .field("soil_moisture", data["soil_moisture"])
+        )
+        write_client.write_api(write_options=SYNCHRONOUS).write(
+            bucket=bucket, org=org, record=point
         )
         print(f"[{now}] Logged: {data}")
 
